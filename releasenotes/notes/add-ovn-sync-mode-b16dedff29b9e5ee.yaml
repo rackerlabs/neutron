@@ -1,0 +1,12 @@
+---
+features:
+  - |
+    A new sync mode for OVN has been created which will allow an
+    operator to "add" records to the OVN database without attempting
+    to remove records. This is useful for operators who want to
+    manage the OVN database manually, operate with a hybrid OVN
+    environment, and/or only want to add records that are missing
+    from a running cloud. This mode can be enabled by setting the
+    command line switch ``--ovn-neutron_sync_mode`` to "add" or in
+    the configuration file by setting ``ovn.neutron_sync_mode`` to
+    "add".

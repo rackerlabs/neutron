@@ -484,3 +484,12 @@ OVN_DB_SYNC_MODE_OFF = 'off'
 OVN_DB_SYNC_MODE_LOG = 'log'
 OVN_DB_SYNC_MODE_REPAIR = 'repair'
 OVN_DB_SYNC_MODE_MIGRATE = 'migrate'
+OVN_DB_SYNC_MODE_ADD = 'add'
+
+OVN_VALID_ADD_OR_REPAIR_MODES = [OVN_DB_SYNC_MODE_REPAIR,
+                                 OVN_DB_SYNC_MODE_ADD,
+                                 ]
+OVN_VALID_SYNC_MODES = [OVN_DB_SYNC_MODE_LOG,
+                        OVN_DB_SYNC_MODE_REPAIR,
+                        OVN_DB_SYNC_MODE_ADD,
+                        ]

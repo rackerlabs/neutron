@@ -580,7 +580,7 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
                                  del_port_groups_list,
                                  create_metadata_list):
         self._test_mocks_helper(ovn_nb_synchronizer)
-
+        mode = ovn_nb_synchronizer.mode
         ovn_api = ovn_nb_synchronizer.ovn_api
         mock.patch.object(impl_idl_ovn.OvsdbNbOvnIdl, 'from_worker').start()
 
@@ -596,11 +596,14 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
 
         del_port_groups_calls = [mock.call(d)
                                  for d in del_port_groups_list]
-        self.assertEqual(
-            len(del_port_groups_list),
-            ovn_api.pg_del.call_count)
-        ovn_api.pg_del.assert_has_calls(
-            del_port_groups_calls, any_order=True)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.pg_del.call_count, 0)
+        else:
+            self.assertEqual(
+                len(del_port_groups_list),
+                ovn_api.pg_del.call_count)
+            ovn_api.pg_del.assert_has_calls(
+                del_port_groups_calls, any_order=True)
 
         self.assertEqual(
             len(create_network_list),
@@ -640,20 +643,26 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
         ovn_nb_synchronizer._ovn_client.create_provnet_port.assert_has_calls(
             create_provnet_port_calls, any_order=True)
 
-        self.assertEqual(len(del_network_list),
-                         ovn_api.ls_del.call_count)
-        ls_del_calls = [mock.call(net_name)
-                        for net_name in del_network_list]
-        ovn_api.ls_del.assert_has_calls(
-            ls_del_calls, any_order=True)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.ls_del.call_count, 0)
+        else:
+            self.assertEqual(len(del_network_list),
+                            ovn_api.ls_del.call_count)
+            ls_del_calls = [mock.call(net_name)
+                            for net_name in del_network_list]
+            ovn_api.ls_del.assert_has_calls(
+                ls_del_calls, any_order=True)
 
-        self.assertEqual(len(del_port_list),
-                         ovn_api.delete_lswitch_port.call_count)
-        delete_lswitch_port_calls = [mock.call(lport_name=port['id'],
-                                               lswitch_name=port['lswitch'])
-                                     for port in del_port_list]
-        ovn_api.delete_lswitch_port.assert_has_calls(
-            delete_lswitch_port_calls, any_order=True)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.delete_lswitch_port.call_count, 0)
+        else:
+            self.assertEqual(len(del_port_list),
+                            ovn_api.delete_lswitch_port.call_count)
+            delete_lswitch_port_calls = [mock.call(lport_name=port['id'],
+                                                lswitch_name=port['lswitch'])
+                                        for port in del_port_list]
+            ovn_api.delete_lswitch_port.assert_has_calls(
+                delete_lswitch_port_calls, any_order=True)
 
         add_route_calls = [mock.call(mock.ANY, ip_prefix=route['destination'],
                                      nexthop=route['nexthop'],
@@ -669,9 +678,12 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
         del_route_call = [mock.call(mock.ANY, routes_to_delete)] \
             if routes_to_delete else []
 
-        ovn_api.delete_static_routes.assert_has_calls(del_route_call)
-        self.assertEqual(1 if len(del_static_route_list) else 0,
-                         ovn_api.delete_static_routes.call_count)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.delete_static_routes.call_count, 0)
+        else:
+            ovn_api.delete_static_routes.assert_has_calls(del_route_call)
+            self.assertEqual(1 if len(del_static_route_list) else 0,
+                            ovn_api.delete_static_routes.call_count)
 
         add_nat_calls = [mock.call(mock.ANY, **nat) for nat in add_snat_list]
         ovn_api.add_nat_rule_in_lrouter.assert_has_calls(add_nat_calls,
@@ -689,18 +701,28 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
             call_count)
 
         del_nat_calls = [mock.call(mock.ANY, **nat) for nat in del_snat_list]
-        ovn_api.delete_nat_rule_in_lrouter.assert_has_calls(del_nat_calls,
-                                                            any_order=True)
-        self.assertEqual(len(del_snat_list),
-                         ovn_api.delete_nat_rule_in_lrouter.call_count)
 
-        del_fip_calls = [mock.call(nat, mock.ANY, txn=mock.ANY) for nat in
-                         del_floating_ip_list]
-        ovn_nb_synchronizer._ovn_client._delete_floatingip.assert_has_calls(
-            del_fip_calls, any_order=True)
-        self.assertEqual(
-            len(del_floating_ip_list),
-            ovn_nb_synchronizer._ovn_client._delete_floatingip.call_count)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.delete_nat_rule_in_lrouter.call_count, 0)
+        else:
+            ovn_api.delete_nat_rule_in_lrouter.assert_has_calls(del_nat_calls,
+                                                                any_order=True)
+            self.assertEqual(len(del_snat_list),
+                            ovn_api.delete_nat_rule_in_lrouter.call_count)
+            del_fip_calls = [mock.call(nat, mock.ANY, txn=mock.ANY) for nat in
+                            del_floating_ip_list]
+            _client = ovn_nb_synchronizer._ovn_client
+            _client._delete_floatingip.assert_has_calls(
+                del_fip_calls, any_order=True)
+
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(
+                ovn_nb_synchronizer._ovn_client._delete_floatingip.call_count,
+                0)
+        else:
+            self.assertEqual(
+                len(del_floating_ip_list),
+                ovn_nb_synchronizer._ovn_client._delete_floatingip.call_count)
 
         create_router_calls = [mock.call(mock.ANY, r,
                                          add_external_gateway=False)
@@ -721,7 +743,10 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
             create_router_port_calls,
             any_order=True)
 
-        self.assertEqual(len(del_router_list), ovn_api.lr_del.call_count)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.lr_del.call_count, 0)
+        else:
+            self.assertEqual(len(del_router_list), ovn_api.lr_del.call_count)
         update_router_port_calls = [mock.call(mock.ANY, p)
                                     for p in update_router_port_list]
         self.assertEqual(
@@ -731,18 +756,26 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
             update_router_port_calls,
             any_order=True)
 
-        delete_lrouter_calls = [mock.call(r['router'], if_exists=True)
-                                for r in del_router_list]
-        ovn_api.lr_del.assert_has_calls(delete_lrouter_calls, any_order=True)
-
-        self.assertEqual(
-            len(del_router_port_list),
-            ovn_api.delete_lrouter_port.call_count)
-        delete_lrouter_port_calls = [mock.call(port['id'],
-                                               port['router'], if_exists=False)
-                                     for port in del_router_port_list]
-        ovn_api.delete_lrouter_port.assert_has_calls(
-            delete_lrouter_port_calls, any_order=True)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.delete_lrouter_port.call_count, 0)
+        else:
+            delete_lrouter_calls = [mock.call(r['router'], if_exists=True)
+                                    for r in del_router_list]
+            ovn_api.lr_del.assert_has_calls(
+                delete_lrouter_calls,
+                any_order=True
+            )
+            self.assertEqual(
+                len(del_router_port_list),
+                ovn_api.delete_lrouter_port.call_count)
+            delete_lrouter_port_calls = [
+                mock.call(
+                    port['id'],
+                    port['router'], if_exists=False
+                ) for port in del_router_port_list
+            ]
+            ovn_api.delete_lrouter_port.assert_has_calls(
+                delete_lrouter_port_calls, any_order=True)
 
         self.assertEqual(
             len(add_subnet_dhcp_options_list),
@@ -754,13 +787,16 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
         ovn_nb_synchronizer._ovn_client._add_subnet_dhcp_options. \
             assert_has_calls(add_subnet_dhcp_options_calls, any_order=True)
 
-        self.assertEqual(ovn_api.delete_dhcp_options.call_count,
-                         len(delete_dhcp_options_list))
-        delete_dhcp_options_calls = [
-            mock.call(dhcp_opt_uuid)
-            for dhcp_opt_uuid in delete_dhcp_options_list]
-        ovn_api.delete_dhcp_options.assert_has_calls(
-            delete_dhcp_options_calls, any_order=True)
+        if mode == ovn_const.OVN_DB_SYNC_MODE_ADD:
+            self.assertEqual(ovn_api.delete_dhcp_options.call_count, 0)
+        else:
+            self.assertEqual(ovn_api.delete_dhcp_options.call_count,
+                            len(delete_dhcp_options_list))
+            delete_dhcp_options_calls = [
+                mock.call(dhcp_opt_uuid)
+                for dhcp_opt_uuid in delete_dhcp_options_list]
+            ovn_api.delete_dhcp_options.assert_has_calls(
+                delete_dhcp_options_calls, any_order=True)
 
     def test_ovn_nb_sync_mode_repair(self):
 
@@ -868,6 +904,136 @@ class TestOvnNbSyncML2(test_mech_driver.OVNMechanismDriverTestCase):
         ovn_nb_synchronizer = ovn_db_sync.OvnNbSynchronizer(
             self.plugin, self.mech_driver.nb_ovn, self.mech_driver.sb_ovn,
             ovn_const.OVN_DB_SYNC_MODE_REPAIR, self.mech_driver)
+        self._test_ovn_nb_sync_helper(ovn_nb_synchronizer,
+                                      self.networks,
+                                      self.ports,
+                                      self.routers,
+                                      self.get_sync_router_ports,
+                                      create_router_list,
+                                      create_router_port_list,
+                                      update_router_port_list,
+                                      del_router_list, del_router_port_list,
+                                      create_network_list, create_port_list,
+                                      create_provnet_port_list,
+                                      del_network_list, del_port_list,
+                                      add_static_route_list,
+                                      del_static_route_list,
+                                      add_snat_list,
+                                      del_snat_list,
+                                      add_floating_ip_list,
+                                      del_floating_ip_list,
+                                      add_subnet_dhcp_options_list,
+                                      delete_dhcp_options_list,
+                                      add_port_groups_list,
+                                      del_port_groups_list,
+                                      create_metadata_list)
+
+    def test_ovn_nb_sync_mode_add(self):
+
+        create_network_list = [{'net': {'id': 'n2', 'mtu': 1450},
+                                'ext_ids': {}}]
+        del_network_list = ['neutron-n3']
+        del_port_list = [{'id': 'p3n1', 'lswitch': 'neutron-n1'},
+                         {'id': 'p1n1', 'lswitch': 'neutron-n1'},
+                         {'id': 'provnet-orphaned-segment',
+                          'lswitch': 'neutron-n4'}]
+        create_port_list = self.ports
+        for port in create_port_list.copy():
+            if port['id'] in ['p1n1', 'fp1']:
+                # this will be skipped by the logic,
+                # because p1n1 is already in lswitch-port list
+                # and fp1 is a floating IP port
+                create_port_list.remove(port)
+        create_provnet_port_list = [{'id': 'n1', 'mtu': 1450,
+                                     'provider:physical_network': 'physnet1',
+                                     'provider:segmentation_id': 1000}]
+        create_router_list = [{
+            'id': 'r2', 'routes': [
+                {'nexthop': '40.0.0.100', 'destination': '30.0.0.0/24',
+                 'external_ids': {}}],
+            'gw_port_id': 'gpr2',
+            'external_gateway_info': {
+                'network_id': "ext-net", 'enable_snat': True,
+                'external_fixed_ips': [{
+                    'subnet_id': 'ext-subnet',
+                    'ip_address': '100.0.0.2'}]}}]
+
+        # Test adding and deleting routes snats fips behaviors for router r1
+        # existing in both neutron DB and OVN DB.
+        # Test adding behaviors for router r2 only existing in neutron DB.
+        # Static routes with destination 0.0.0.0/0 are default gateway routes
+        add_static_route_list = [{'nexthop': '20.0.0.101',
+                                  'destination': '12.0.0.0/24',
+                                  'external_ids': {}},
+                                 {'nexthop': '90.0.0.1',
+                                  'destination': const.IPv4_ANY,
+                                  'external_ids': {
+                                      ovn_const.OVN_ROUTER_IS_EXT_GW: 'true',
+                                      ovn_const.OVN_SUBNET_EXT_ID_KEY:
+                                      'ext-subnet'}},
+                                 {'nexthop': '40.0.0.100',
+                                  'destination': '30.0.0.0/24',
+                                  'external_ids': {}},
+                                 {'nexthop': '100.0.0.1',
+                                  'destination': const.IPv4_ANY,
+                                  'external_ids': {
+                                      ovn_const.OVN_ROUTER_IS_EXT_GW: 'true',
+                                      ovn_const.OVN_SUBNET_EXT_ID_KEY:
+                                      'ext-subnet'}}]
+        del_static_route_list = [{'nexthop': '20.0.0.100',
+                                  'destination': '10.0.0.0/24',
+                                  'external_ids': {}}]
+        add_snat_list = [{'logical_ip': '172.16.2.0/24',
+                          'external_ip': '90.0.0.2',
+                          'type': 'snat'},
+                         {'logical_ip': '192.168.2.0/24',
+                          'external_ip': '100.0.0.2',
+                          'type': 'snat'}]
+        del_snat_list = [{'logical_ip': '172.16.1.0/24',
+                          'external_ip': '90.0.0.2',
+                          'type': 'snat'}]
+        # fip 100.0.0.11 exists in OVN with distributed type and in Neutron
+        # with centralized type. This fip is used to test
+        # enable_distributed_floating_ip switch and migration
+        add_floating_ip_list = [{'id': 'fip2', 'router_id': 'r1',
+                                 'floating_ip_address': '90.0.0.12',
+                                 'fixed_ip_address': '172.16.2.12'},
+                                {'id': 'fip3', 'router_id': 'r2',
+                                 'floating_ip_address': '100.0.0.10',
+                                 'fixed_ip_address': '192.168.2.10'},
+                                {'id': 'fip4', 'router_id': 'r2',
+                                 'floating_ip_address': '100.0.0.11',
+                                 'fixed_ip_address': '192.168.2.11'}]
+        del_floating_ip_list = [{'logical_ip': '172.16.1.11',
+                                 'external_ip': '90.0.0.11',
+                                 'type': 'dnat_and_snat'},
+                                {'logical_ip': '192.168.2.11',
+                                 'external_ip': '100.0.0.11',
+                                 'type': 'dnat_and_snat',
+                                 'external_mac': '01:02:03:04:05:06',
+                                 'logical_port': 'vm1'}]
+
+        del_router_list = [{'router': 'neutron-r3'}]
+        del_router_port_list = [{'id': 'lrp-p3r1', 'router': 'neutron-r1'}]
+        create_router_port_list = self.get_sync_router_ports[:2]
+        update_router_port_list = [self.get_sync_router_ports[2]]
+        update_router_port_list[0].update(
+            {'networks': self.lrport_networks})
+
+        add_port_groups_list = [
+            {'external_ids': {ovn_const.OVN_SG_EXT_ID_KEY: 'sg2'},
+             'name': 'pg_sg2',
+             'acls': []}]
+        del_port_groups_list = ['pg_unknown_del']
+
+        add_subnet_dhcp_options_list = [(self.subnets[2], self.networks[1]),
+                                        (self.subnets[1], self.networks[0])]
+        delete_dhcp_options_list = ['UUID2', 'UUID4', 'UUID5']
+        create_metadata_list = self.networks
+
+        ovn_nb_synchronizer = ovn_db_sync.OvnNbSynchronizer(
+            self.plugin, self.mech_driver.nb_ovn, self.mech_driver.sb_ovn,
+            ovn_const.OVN_DB_SYNC_MODE_ADD, self.mech_driver)
         self._test_ovn_nb_sync_helper(ovn_nb_synchronizer,
                                       self.networks,
                                       self.ports,

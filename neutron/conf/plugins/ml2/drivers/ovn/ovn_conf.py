@@ -113,7 +113,12 @@ ovn_opts = [
                          "This mode is to OVS to OVN migration. "
                          "It will sync the DB just like repair mode but it "
                          "will additionally fix the Neutron DB resource from "
-                         "OVS to OVN.")],
+                         "OVS to OVN."),
+                        (ovn_const.OVN_DB_SYNC_MODE_ADD,
+                         "During neutron-server startup, automatically create "
+                         "resources found in Neutron but not in OVN. Unlike "
+                         "REPAIR mode, it will not remove resources from the "
+                         "OVN DB.")],
                help=_('The synchronization mode of OVN_Northbound OVSDB '
                       'with Neutron DB.')),
     cfg.StrOpt("ovn_l3_scheduler",
