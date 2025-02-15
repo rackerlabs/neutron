@@ -178,9 +178,12 @@ def main():
     if mode == ovn_conf.MIGRATE_MODE:
         mode = ovn_db_sync.SYNC_MODE_REPAIR
         migrate = True
-    if mode not in [ovn_db_sync.SYNC_MODE_LOG, ovn_db_sync.SYNC_MODE_REPAIR]:
+    if mode not in [ovn_db_sync.SYNC_MODE_LOG, ovn_db_sync.SYNC_MODE_REPAIR,
+                    ovn_db_sync.SYNC_MODE_ADD]:
         LOG.error(
-            'Invalid sync mode: ["%s"]. Should be "log" or "repair"', mode)
+            'Invalid sync mode: ["%s"]. Should be "log" or "repair" or "add"',
+            mode
+        )
         return
 
     # Validate and modify core plugin and ML2 mechanism drivers for syncing.
