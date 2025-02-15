@@ -179,13 +179,10 @@ def main():
     if mode == ovn_const.OVN_DB_SYNC_MODE_MIGRATE:
         mode = ovn_const.OVN_DB_SYNC_MODE_REPAIR
         migrate = True
-    if mode not in [ovn_const.OVN_DB_SYNC_MODE_LOG,
-                    ovn_const.OVN_DB_SYNC_MODE_REPAIR]:
+    if mode not in ovn_const.OVN_VALID_SYNC_MODES:
         LOG.error(
-            'Invalid sync mode: ["%s"]. Should be "%s" or "%s"',
-            mode,
-            ovn_const.OVN_DB_SYNC_MODE_LOG,
-            ovn_const.OVN_DB_SYNC_MODE_REPAIR)
+            'Invalid sync mode: ["%s"]. Should be one of "%s".',
+            mode, ovn_const.OVN_VALID_SYNC_MODES)
         raise SystemExit(1)
 
     # Validate and modify core plugin and ML2 mechanism drivers for syncing.
