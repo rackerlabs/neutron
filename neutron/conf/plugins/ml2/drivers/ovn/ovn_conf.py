@@ -98,7 +98,7 @@ ovn_opts = [
                       'to 60 seconds.')),
     cfg.StrOpt('neutron_sync_mode',
                default='log',
-               choices=('off', 'log', 'repair', MIGRATE_MODE),
+               choices=('off', 'log', 'repair', MIGRATE_MODE, 'add'),
                help=_('The synchronization mode of OVN_Northbound OVSDB '
                       'with Neutron DB.\n'
                       'off - synchronization is off \n'
@@ -114,7 +114,10 @@ ovn_opts = [
                       '%(migrate)s - This mode is to OVS to OVN migration. It'
                       ' will sync the DB just like repair mode but it will'
                       ' additionally fix the Neutron DB resource from OVS to'
-                      ' OVN.') % {'migrate': MIGRATE_MODE}),
+                      ' OVN.'
+                      'add - during neutron-server startup, automatically'
+                      ' create resources found in Neutron but not in OVN.')
+                      % {'migrate': MIGRATE_MODE}),
     cfg.StrOpt("ovn_l3_scheduler",
                default='leastloaded',
                choices=('leastloaded', 'chance'),
