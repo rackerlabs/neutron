@@ -800,7 +800,7 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
                     rp['device_id']))
             lrp_name = utils.ovn_lrouter_port_name(rp['id'])
             lrp = self._nb_idl.get_lrouter_port(lrp_name)
-            if lrp.options.get(
+            if lrp and lrp.options.get(
                     ovn_const.LRP_OPTIONS_RESIDE_REDIR_CH) != expected_value:
                 opt = {ovn_const.LRP_OPTIONS_RESIDE_REDIR_CH: expected_value}
                 cmds.append(self._nb_idl.db_set(
@@ -1034,6 +1034,13 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
                     continue
                 network_id = ovn_network_name.replace('neutron-', '')
                 if not network_id:
+                    continue
+                try:
+                    utils.idlutils.uuid.UUID(str(network_id))
+                except ValueError:
+                    LOG.warning(
+                        "Network %s has an invalid UUID, skipping "
+                        "ProviderResourceAssociation creation.", network_id)
                     continue
                 is_ext_gw = str(network_id in ext_gw_networks)
                 external_ids = lrp.external_ids
@@ -1299,6 +1306,13 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
         with db_api.CONTEXT_WRITER.using(context):
             for lr in self._nb_idl.lr_list().execute(check_error=True):
                 router_id = lr.name.replace('neutron-', '')
+                try:
+                    utils.idlutils.uuid.UUID(str(router_id))
+                except ValueError:
+                    LOG.warning(
+                        "Logical Router %s has an invalid UUID, skipping "
+                        "ProviderResourceAssociation creation.", router_id)
+                    continue
                 if router_id not in pra_res_ids:
                     servicetype_obj.ProviderResourceAssociation(
                         context, provider_name=provider_name,
@@ -1359,6 +1373,13 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
         for ls in self._nb_idl.ls_list().execute(check_error=True):
             if ovn_const.OVN_NETTYPE_EXT_ID_KEY not in ls.external_ids:
                 net_id = ls.name.replace('neutron-', '')
+                try:
+                    utils.idlutils.uuid.UUID(str(net_id))
+                except ValueError:
+                    LOG.warning(
+                        "Network %s has an invalid UUID, skipping "
+                        "ProviderResourceAssociation creation.", net_id)
+                    continue
                 external_ids = {
                     ovn_const.OVN_NETTYPE_EXT_ID_KEY: net_segments[net_id]}
                 cmds.append(self._nb_idl.db_set(
