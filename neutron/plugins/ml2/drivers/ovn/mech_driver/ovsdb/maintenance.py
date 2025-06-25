@@ -17,6 +17,7 @@ import abc
 import functools
 import inspect
 import threading
+import uuid
 
 import futurist
 from futurist import periodics
@@ -544,6 +545,14 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
                                 flood == flood_conf)):
                 continue
 
+            try:
+                uuid.UUID(str(utils.get_neutron_name(ls.name)))
+            except ValueError:
+                LOG.warning(
+                    "Network %s has an invalid UUID, skipping "
+                    "ProviderResourceAssociation creation.", ls.name)
+                continue
+
             cmds.append(self._nb_idl.db_set(
                     'Logical_Switch', ls.name,
                     ('other_config', {
@@ -1016,6 +1025,13 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
 
             if ovn_const.OVN_NETTYPE_EXT_ID_KEY not in ls.external_ids:
                 net_id = utils.get_neutron_name(ls.name)
+                try:
+                    uuid.UUID(str(net_id))
+                except ValueError:
+                    LOG.warning(
+                        "Network %s has an invalid UUID, skipping "
+                        "ProviderResourceAssociation creation.", net_id)
+                    continue
                 external_ids = {
                     ovn_const.OVN_NETTYPE_EXT_ID_KEY: net_segments[net_id]}
                 cmds.append(self._nb_idl.db_set(
