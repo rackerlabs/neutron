@@ -5175,7 +5175,7 @@ class TestOVNVVirtualPort(OVNMechanismDriverTestCase):
 
         fake_txn = mock.Mock()
         parent_port = {'id': 'parent-port', 'network_id': 'fake-network'}
-        port = {'id': 'virt-port'}
+        port = {'id': 'virt-port', 'binding:vif_type': 'unbound'}
         mock_get_ports.return_value = [port]
         self.mech_driver._ovn_client._set_unset_virtual_port_type(
             self.context, fake_txn, parent_port, ['10.0.0.55'], unset=unset)

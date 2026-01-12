@@ -668,12 +668,18 @@ class OVNClient:
 
         for addr in addresses:
             virt_port = self._plugin.get_ports(context, filters={
-                portbindings.VIF_TYPE: portbindings.VIF_TYPE_UNBOUND,
                 'network_id': [parent_port['network_id']],
                 'fixed_ips': {'ip_address': [addr]}})
             if not virt_port:
                 continue
             virt_port = virt_port[0]
+
+            if virt_port[portbindings.VIF_TYPE] not in (
+                portbindings.VIF_TYPE_UNBOUND,
+                portbindings.VIF_TYPE_VIRTUAL,
+            ):
+                continue
+
             args = {'lport_name': virt_port['id'],
                     'virtual_parent': parent_port['id'],
                     'if_exists': True}

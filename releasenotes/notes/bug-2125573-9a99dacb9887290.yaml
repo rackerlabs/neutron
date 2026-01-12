@@ -1,0 +1,9 @@
+---
+fixes:
+  - |
+    `2125573 <https://bugs.launchpad.net/neutron/+bug/2125573>`_
+    Fixed an OVN issue with virtual ports, that were not properly updated
+    whenever a new port was created that should be included as virtual-parent.
+    This caused issues when for example octavia tried to create a new port
+    for a new loadbalancer member on a virtual port that was already hosting
+    other loadbalancer members.

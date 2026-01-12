@@ -907,3 +907,26 @@ class TestDBInconsistenciesPeriodics(testlib_api.SqlTestCaseLight,
         # Assert there was no transactions because the record directly
         # created in ovn i.e not created by neutron
         self.fake_ovn_client._nb_idl.dns_set_options.assert_not_called()
+
+    def test_update_virtual_port_portbindings(self):
+        port = fakes.FakeOvsdbRow.create_one_ovsdb_row(
+            attrs={
+                'name': 'port-id',
+                'external_ids': {constants.OVN_HOST_ID_EXT_ID_KEY: 'host1'}
+            }
+        )
+        db_find_rows = self.fake_ovn_client._nb_idl.db_find_rows
+        db_find_rows.return_value.execute.return_value = [port]
+
+        _plugin = self.fake_ovn_client._plugin
+        _plugin.get_ports.return_value = [
+            {'id': 'port-id', 'binding:vif_type': 'foo'}
+        ]
+
+        self.assertRaises(periodics.NeverAgain,
+                          self.periodic.update_virtual_port_portbindings)
+
+        _plugin.get_ports.assert_called_once_with(
+            mock.ANY, {'id': ['port-id']})
+        _plugin.update_virtual_port_host.assert_called_once_with(
+            mock.ANY, 'port-id', 'host1')

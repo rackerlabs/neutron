@@ -2974,6 +2974,46 @@ class TestMl2PortBinding(Ml2PluginV2TestCase,
                 self.context, 'foo_port_id', {'port': port})
         self.assertFalse(mock_dist.called)
 
+    def test_update_virtual_port_host(self, hostname="new_host"):
+        plugin = self.driver
+        existing_binding = mock.Mock()
+
+        vif_type = portbindings.VIF_TYPE_UNBOUND
+        if hostname:
+            vif_type = portbindings.VIF_TYPE_VIRTUAL
+        expect = {
+            "port_id": "port_id",
+            "vnic_type": portbindings.VNIC_NORMAL,
+            "vif_details": {},
+            "profile": {},
+            "vif_type": vif_type,
+            "host": hostname,
+        }
+
+        with mock.patch.object(port_obj, "PortBinding") as mock_port_binding:
+            mock_port_binding.get_objects.return_value = [existing_binding]
+            plugin.update_virtual_port_host(self.context, "port_id", hostname)
+            mock_port_binding.get_objects.assert_called_once_with(
+                self.context, port_id="port_id"
+            )
+            existing_binding.delete.assert_called_once()
+            mock_port_binding.assert_called_once_with(self.context, **expect)
+
+    def test_update_virtual_port_host_empty(self):
+        self.test_update_virtual_port_host(hostname="")
+
+    def test_update_virtual_port_host_no_bindings(self):
+        plugin = self.driver
+
+        with mock.patch.object(port_obj, "PortBinding") as mock_port_binding:
+            mock_port_binding.get_objects.return_value = []
+            plugin.update_virtual_port_host(
+                self.context, "port_id", "new_host")
+            mock_port_binding.get_objects.assert_called_once_with(
+                self.context, port_id="port_id"
+            )
+            mock_port_binding.assert_not_called()
+
     def test__bind_port_original_port_set(self):
         plugin = directory.get_plugin()
         plugin.mechanism_manager = mock.Mock()

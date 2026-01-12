@@ -2173,6 +2173,8 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         register is always VIF_TYPE_UNBOUND. However this method updates the
         host information to reflect where the associated port that is sending
         or receiving traffic, using the VIP address, is hosted.
+        If hosted, the portbinding will change to VIF_TYPE_VIRTUAL. This
+        will prevent other mechanism drivers from attempting to bind the port.
         """
         hostname = hostname or ''
         with db_api.CONTEXT_WRITER.using(context):
@@ -2186,11 +2188,15 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             for pb in pbindings:
                 pb.delete()
 
+            vif_type = portbindings.VIF_TYPE_UNBOUND
+            if hostname:
+                vif_type = portbindings.VIF_TYPE_VIRTUAL
+
             attrs = {'port_id': port_id,
                      'vnic_type': portbindings.VNIC_NORMAL,
                      'vif_details': {},
                      'profile': {},
-                     'vif_type': portbindings.VIF_TYPE_UNBOUND,
+                     'vif_type': vif_type,
                      'host': hostname}
             ports_obj.PortBinding(context, **attrs).create()
 
