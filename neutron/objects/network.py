@@ -216,7 +216,8 @@ class Network(rbac_db.NeutronRbacObject):
     # Version 1.0: Initial version
     # Version 1.1: Changed 'mtu' to be not nullable
     # Version 1.2: Added 'qinq' field
-    VERSION = '1.2'
+    # Version 1.3: Added 'pvlan' field
+    VERSION = '1.3'
 
     rbac_db_cls = NetworkRBAC
     db_model = models_v2.Network
@@ -243,6 +244,7 @@ class Network(rbac_db.NeutronRbacObject):
             'NetworkPortSecurity', nullable=True),
         'segments': obj_fields.ListOfObjectsField(
             'NetworkSegment', nullable=True),
+        'pvlan': obj_fields.BooleanField(nullable=True),
         'dns_domain': common_types.DomainNameField(nullable=True),
         'qos_policy_id': common_types.UUIDField(nullable=True, default=None),
 
@@ -255,6 +257,7 @@ class Network(rbac_db.NeutronRbacObject):
 
     synthetic_fields = [
         'dns_domain',
+        'pvlan',
         'qos_policy_id',
         'security',
         'segments',
@@ -342,6 +345,13 @@ class Network(rbac_db.NeutronRbacObject):
                 self.qos_policy_id = None
             self.obj_reset_changes(['qos_policy_id'])
 
+            # extract pvlan
+            if db_obj.get('pvlan'):
+                self.pvlan = db_obj.pvlan.pvlan
+            else:
+                self.pvlan = None
+            self.obj_reset_changes(['pvlan'])
+
     @classmethod
     def get_bound_project_ids(cls, context, policy_id):
         # TODO(ihrachys): provide actual implementation
@@ -356,6 +366,8 @@ class Network(rbac_db.NeutronRbacObject):
                     objver=target_version, objname=self.__class__.__name__)
         if _target_version < (1, 2):
             primitive.pop('qinq', None)
+        if _target_version < (1, 3):
+            primitive.pop('pvlan', None)
 
 
 @base.NeutronObjectRegistry.register
