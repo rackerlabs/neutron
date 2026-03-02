@@ -70,6 +70,7 @@ from neutron_lib.api.definitions import portbindings
 from neutron_lib.api.definitions import portbindings_extended as pbe_ext
 from neutron_lib.api.definitions import project_id
 from neutron_lib.api.definitions import provider_net
+from neutron_lib.api.definitions import pvlan
 from neutron_lib.api.definitions import qinq
 from neutron_lib.api.definitions import qos
 from neutron_lib.api.definitions import qos_bw_limit_direction
@@ -228,4 +229,5 @@ ML2_SUPPORTED_API_EXTENSIONS = [
     tap_mirror_both_direction.ALIAS,
     ip_allocation.ALIAS,
     ip_substring_port_filtering.ALIAS,
+    pvlan.ALIAS,
 ]
