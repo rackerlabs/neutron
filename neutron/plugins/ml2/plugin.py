@@ -2095,9 +2095,12 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         or receiving traffic, using the VIP address, is hosted.
         """
         hostname = hostname or ''
+        LOG.info("LARDEBUG About to setup portbinding context")
         with db_api.CONTEXT_WRITER.using(context):
+            LOG.info("LARDEBUG Getting portbindings")
             pbindings = ports_obj.PortBinding.get_objects(context,
                                                           port_id=port_id)
+            LOG.info("LARDEBUG Found %s portbindings", len(pbindings))
             if not pbindings:
                 # The port has been deleted and there is no need to delete and
                 # create any port binding.
@@ -2106,12 +2109,17 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             for pb in pbindings:
                 pb.delete()
 
+            vif_type = portbindings.VIF_TYPE_UNBOUND
+            if hostname:
+                vif_type = 'virtual'
+
             attrs = {'port_id': port_id,
                      'vnic_type': portbindings.VNIC_NORMAL,
                      'vif_details': {},
                      'profile': {},
-                     'vif_type': portbindings.VIF_TYPE_UNBOUND,
+                     'vif_type': vif_type,
                      'host': hostname}
+            LOG.info("Creating portbinding %s", attrs)
             ports_obj.PortBinding(context, **attrs).create()
 
     def _pre_delete_port(self, context, port_id, port_check, port=None):
