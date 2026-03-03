@@ -676,7 +676,7 @@ class OVNClient:
 
             if virt_port[portbindings.VIF_TYPE] not in (
                 portbindings.VIF_TYPE_UNBOUND,
-                portbindings.VIF_TYPE_VIRTUAL,
+                'virtual',
             ):
                 continue
 

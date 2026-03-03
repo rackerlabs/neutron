@@ -2190,7 +2190,7 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             vif_type = portbindings.VIF_TYPE_UNBOUND
             if hostname:
-                vif_type = portbindings.VIF_TYPE_VIRTUAL
+                vif_type = 'virtual'
 
             attrs = {'port_id': port_id,
                      'vnic_type': portbindings.VNIC_NORMAL,

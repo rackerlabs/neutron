@@ -1188,7 +1188,7 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
             context, {"id": list(bound_virtual_ports.keys())}
         )
         for port in db_ports:
-            if port["binding:vif_type"] != portbindings.VIF_TYPE_VIRTUAL:
+            if port["binding:vif_type"] != 'virtual':
                 LOG.debug("Updating port %s with VIF_TYPE_VIRTUAL", port["id"])
                 self._ovn_client._plugin.update_virtual_port_host(
                     context, port["id"], bound_virtual_ports[port["id"]]
