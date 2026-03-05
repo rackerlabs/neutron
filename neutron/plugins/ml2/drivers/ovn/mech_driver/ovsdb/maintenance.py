@@ -1232,6 +1232,42 @@ class DBInconsistenciesPeriodics(SchemaAwarePeriodicsBase):
 
         raise periodics.NeverAgain()
 
+    @has_lock_periodic(
+        periodic_run_limit=ovn_const.MAINTENANCE_TASK_RETRY_LIMIT,
+        spacing=ovn_const.MAINTENANCE_ONE_RUN_TASK_SPACING,
+        run_immediately=True,
+    )
+    def update_virtual_port_portbindings(self):
+        """Update portbinding of virtual ports with a host_id to new
+        VIF_TYPE_VIRTUAL.
+        """
+
+        bound_virtual_ports = {}
+        ports = self._nb_idl.db_find_rows(
+            "Logical_Switch_Port", ("type", "=", ovn_const.LSP_TYPE_VIRTUAL)
+        ).execute(check_error=True)
+        for port in ports:
+            host = port.external_ids.get(ovn_const.OVN_HOST_ID_EXT_ID_KEY)
+            if host:
+                bound_virtual_ports[port.name] = host
+
+        if not bound_virtual_ports:
+            raise periodics.NeverAgain()
+
+        # Get all the bound ports and check their portbinding
+        context = n_context.get_admin_context()
+        db_ports = self._ovn_client._plugin.get_ports(
+            context, {"id": list(bound_virtual_ports.keys())}
+        )
+        for port in db_ports:
+            if port["binding:vif_type"] != 'virtual':
+                LOG.debug("Updating port %s with VIF_TYPE_VIRTUAL", port["id"])
+                self._ovn_client._plugin.update_virtual_port_host(
+                    context, port["id"], bound_virtual_ports[port["id"]]
+                )
+
+        raise periodics.NeverAgain()
+
 
 class HashRingHealthCheckPeriodics:
 
@@ -1239,6 +1275,10 @@ class HashRingHealthCheckPeriodics:
         self._group = group
         self._node_uuid = node_uuid
         self.ctx = n_context.get_admin_context()
+
+    @property
+    def has_lock(self):
+        return False
 
     @periodics.periodic(spacing=ovn_const.HASH_RING_TOUCH_INTERVAL)
     def touch_hash_ring_node(self):

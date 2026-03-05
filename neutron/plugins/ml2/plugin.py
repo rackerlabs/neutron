@@ -2180,11 +2180,15 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             for pb in pbindings:
                 pb.delete()
 
+            vif_type = portbindings.VIF_TYPE_UNBOUND
+            if hostname:
+                vif_type = 'virtual'
+
             attrs = {'port_id': port_id,
                      'vnic_type': portbindings.VNIC_NORMAL,
                      'vif_details': {},
                      'profile': {},
-                     'vif_type': portbindings.VIF_TYPE_UNBOUND,
+                     'vif_type': vif_type,
                      'host': hostname}
             ports_obj.PortBinding(context, **attrs).create()
 
