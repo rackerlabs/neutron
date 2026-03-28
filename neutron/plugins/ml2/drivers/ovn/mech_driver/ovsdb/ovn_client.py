@@ -671,13 +671,19 @@ class OVNClient(object):
             cmd = self._nb_idl.unset_lswitch_port_to_virtual_type
 
         for addr in addresses:
+            LOG.info("LARDEBUG Getting ports from OVN DB...")
             virt_port = self._plugin.get_ports(context, filters={
-                portbindings.VIF_TYPE: portbindings.VIF_TYPE_UNBOUND,
                 'network_id': [parent_port['network_id']],
                 'fixed_ips': {'ip_address': [addr]}})
+            LOG.info("LARDEBUG Got %s ports from OVN DB!", len(virt_port))
             if not virt_port:
                 continue
             virt_port = virt_port[0]
+            if virt_port[portbindings.VIF_TYPE] not in (
+                    portbindings.VIF_TYPE_UNBOUND,
+                    'virtual'
+            ):
+                continue
             args = {'lport_name': virt_port['id'],
                     'virtual_parent': parent_port['id'],
                     'if_exists': True}
