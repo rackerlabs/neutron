@@ -46,7 +46,8 @@ def get_clients(context):
     client = d_client.Client(session=_SESSION, auth=auth)
     admin_auth = loading.load_auth_from_conf_options(CONF, 'designate')
     admin_client = d_client.Client(session=_SESSION, auth=admin_auth,
-                                   endpoint_override=CONF.designate.url)
+                                   endpoint_override=CONF.designate.url,
+                                   edit_managed=True)
     return client, admin_client
 
 
@@ -149,14 +150,27 @@ class Designate(driver.ExternalDNSService):
                     dns_name, dns_domain), records, client)
 
         for _id in ids_to_delete:
-            client.recordsets.delete(dns_domain, _id)
+            # Try user client first: admin_client can't see user-owned zones.
+            # Fall back to admin_client for managed records (edit_managed).
+            try:
+                client.recordsets.delete(dns_domain, _id)
+            except d_exc.BadRequest:
+                admin_client.recordsets.delete(dns_domain, _id)
         if not CONF.designate.allow_reverse_dns_lookup:
             return
 
         for record in records:
             in_addr_name = netaddr.IPAddress(record).reverse_dns
             in_addr_zone_name = self._get_in_addr_zone_name(in_addr_name)
-            admin_client.recordsets.delete(in_addr_zone_name, in_addr_name)
+            try:
+                admin_client.recordsets.delete(in_addr_zone_name, in_addr_name)
+            except d_exc.NotFound:
+                LOG.warning(
+                    "While deleting PTR record, either zone %(zone)s "
+                    "or recordset %(recordset)s could not be found. "
+                    "Double check that they were not left as orphans.",
+                    {"zone": in_addr_zone_name, "recordset": in_addr_name}
+                )
 
     def _get_ids_ips_to_delete(self, dns_domain, name, records,
                                designate_client):

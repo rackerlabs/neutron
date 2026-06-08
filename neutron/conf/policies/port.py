@@ -82,11 +82,24 @@ rules = [
             deprecated_since=versionutils.deprecated.WALLABY)
     ),
     policy.DocumentedRuleDefault(
+        name='create_port:device_id',
+        check_str=neutron_policy.policy_or(
+            base.ADMIN_OR_PROJECT_MEMBER,
+            base.SERVICE),
+        scope_types=['project'],
+        description='Specify ``device_id`` attribute when creating a port',
+        operations=ACTION_POST,
+        deprecated_rule=policy.DeprecatedRule(
+            name='create_port:device_id',
+            check_str=neutron_policy.RULE_ANY,
+            deprecated_reason=DEPRECATED_REASON,
+            deprecated_since=versionutils.deprecated.WALLABY)
+    ),
+    policy.DocumentedRuleDefault(
         name='create_port:device_owner',
         check_str=neutron_policy.policy_or(
             'not rule:network_device',
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER
         ),
         scope_types=['project'],
@@ -105,7 +118,6 @@ rules = [
         name='create_port:mac_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER),
         scope_types=['project'],
         description='Specify ``mac_address`` attribute when creating a port',
@@ -122,7 +134,6 @@ rules = [
         name='create_port:fixed_ips',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER,
             'rule:shared'),
         scope_types=['project'],
@@ -141,7 +152,6 @@ rules = [
         name='create_port:fixed_ips:ip_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER),
         scope_types=['project'],
         description='Specify IP address in ``fixed_ips`` when creating a port',
@@ -158,7 +168,6 @@ rules = [
         name='create_port:fixed_ips:subnet_id',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER,
             'rule:shared'),
         scope_types=['project'],
@@ -177,7 +186,6 @@ rules = [
         name='create_port:port_security_enabled',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER),
         scope_types=['project'],
         description=(
@@ -244,7 +252,7 @@ rules = [
         name='create_port:allowed_address_pairs',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_NET_OWNER_MEMBER,
-            base.PROJECT_MANAGER),
+            base.SERVICE),
         scope_types=['project'],
         description=(
             'Specify ``allowed_address_pairs`` '
@@ -261,7 +269,7 @@ rules = [
         name='create_port:allowed_address_pairs:mac_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_NET_OWNER_MEMBER,
-            base.PROJECT_MANAGER),
+            base.SERVICE),
         scope_types=['project'],
         description=(
             'Specify ``mac_address` of `allowed_address_pairs`` '
@@ -278,7 +286,7 @@ rules = [
         name='create_port:allowed_address_pairs:ip_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_NET_OWNER_MEMBER,
-            base.PROJECT_MANAGER),
+            base.SERVICE),
         scope_types=['project'],
         description=(
             'Specify ``ip_address`` of ``allowed_address_pairs`` '
@@ -461,11 +469,24 @@ rules = [
             deprecated_since=versionutils.deprecated.WALLABY)
     ),
     policy.DocumentedRuleDefault(
+        name='update_port:device_id',
+        check_str=neutron_policy.policy_or(
+            base.ADMIN_OR_PROJECT_MEMBER,
+            base.SERVICE),
+        scope_types=['project'],
+        description='Update ``device_id`` attribute of a port',
+        operations=ACTION_PUT,
+        deprecated_rule=policy.DeprecatedRule(
+            name='update_port:device_id',
+            check_str=neutron_policy.RULE_ANY,
+            deprecated_reason=DEPRECATED_REASON,
+            deprecated_since=versionutils.deprecated.WALLABY)
+    ),
+    policy.DocumentedRuleDefault(
         name='update_port:device_owner',
         check_str=neutron_policy.policy_or(
             'not rule:network_device',
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER,
         ),
         scope_types=['project'],
@@ -484,7 +505,7 @@ rules = [
         name='update_port:mac_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER
+            base.NET_OWNER_MANAGER,
         ),
         scope_types=['project'],
         description='Update ``mac_address`` attribute of a port',
@@ -501,7 +522,6 @@ rules = [
         name='update_port:fixed_ips',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER
         ),
         scope_types=['project'],
@@ -519,7 +539,6 @@ rules = [
         name='update_port:fixed_ips:ip_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER
         ),
         scope_types=['project'],
@@ -540,7 +559,6 @@ rules = [
         name='update_port:fixed_ips:subnet_id',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER,
             'rule:shared'
         ),
@@ -563,7 +581,6 @@ rules = [
         name='update_port:port_security_enabled',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_SERVICE,
-            base.PROJECT_MANAGER,
             base.NET_OWNER_MEMBER
         ),
         scope_types=['project'],
@@ -622,7 +639,7 @@ rules = [
         name='update_port:allowed_address_pairs',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_NET_OWNER_MEMBER,
-            base.PROJECT_MANAGER),
+            base.SERVICE),
         scope_types=['project'],
         description='Update ``allowed_address_pairs`` attribute of a port',
         operations=ACTION_PUT,
@@ -636,7 +653,7 @@ rules = [
         name='update_port:allowed_address_pairs:mac_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_NET_OWNER_MEMBER,
-            base.PROJECT_MANAGER),
+            base.SERVICE),
         scope_types=['project'],
         description=(
             'Update ``mac_address`` of ``allowed_address_pairs`` '
@@ -653,7 +670,7 @@ rules = [
         name='update_port:allowed_address_pairs:ip_address',
         check_str=neutron_policy.policy_or(
             base.ADMIN_OR_NET_OWNER_MEMBER,
-            base.PROJECT_MANAGER),
+            base.SERVICE),
         scope_types=['project'],
         description=(
             'Update ``ip_address`` of ``allowed_address_pairs`` '

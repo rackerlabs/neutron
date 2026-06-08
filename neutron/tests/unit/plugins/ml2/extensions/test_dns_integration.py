@@ -760,6 +760,191 @@ class DNSDomainPortsTestCase(DNSIntegrationTestCase):
             dns_data_db, dns_data_db_1, dns_data_db_2)
 
 
+class DNSExtensionDriverML2TestCase(testtools.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.driver = dns_integration.DNSExtensionDriverML2()
+        self.mock_vlan_driver = mock.Mock()
+        self.mock_vlan_driver_property = mock.patch.object(
+            type(self.driver), 'vlan_driver',
+            new_callable=mock.PropertyMock,
+            return_value=self.mock_vlan_driver).start()
+
+    def test__is_vlan_tenant_network_with_multiple_ranges(self):
+        self.mock_vlan_driver.obj.get_network_segment_ranges.return_value = {
+            'physnet1': [(100, 200), (300, 400)],
+            'physnet2': [(500, 600)]
+        }
+
+        provider_net_1 = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 150
+        }
+        self.assertTrue(self.driver._is_vlan_tenant_network(provider_net_1))
+
+        provider_net_2 = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 250
+        }
+        self.assertFalse(self.driver._is_vlan_tenant_network(provider_net_2))
+
+        provider_net_3 = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 350
+        }
+        self.assertTrue(self.driver._is_vlan_tenant_network(provider_net_3))
+
+        provider_net_4 = {
+            'physical_network': 'physnet2',
+            'segmentation_id': 550
+        }
+        self.assertTrue(self.driver._is_vlan_tenant_network(provider_net_4))
+
+        provider_net_5 = {
+            'physical_network': 'physnet2',
+            'segmentation_id': 650
+        }
+        self.assertFalse(self.driver._is_vlan_tenant_network(provider_net_5))
+
+    def test__is_vlan_tenant_network_boundary_values(self):
+        self.mock_vlan_driver.obj.get_network_segment_ranges.return_value = {
+            'physnet1': [(100, 200)]
+        }
+
+        provider_net_1 = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 100
+        }
+        self.assertTrue(self.driver._is_vlan_tenant_network(provider_net_1))
+
+        provider_net_2 = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 200
+        }
+        self.assertTrue(self.driver._is_vlan_tenant_network(provider_net_2))
+
+        provider_net_3 = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 99
+        }
+        self.assertFalse(self.driver._is_vlan_tenant_network(provider_net_3))
+
+        provider_net_4 = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 201
+        }
+        self.assertFalse(self.driver._is_vlan_tenant_network(provider_net_4))
+
+    def test__is_vlan_tenant_network_physnet_not_found(self):
+        self.mock_vlan_driver.obj.get_network_segment_ranges.return_value = {
+            'physnet1': [(100, 200)]
+        }
+
+        provider_net = {
+            'physical_network': 'physnet2',
+            'segmentation_id': 150
+        }
+        self.assertFalse(self.driver._is_vlan_tenant_network(provider_net))
+
+    def test__is_vlan_tenant_network_empty_ranges(self):
+        self.mock_vlan_driver.obj.get_network_segment_ranges.return_value = {}
+
+        provider_net = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 100
+        }
+        self.assertFalse(self.driver._is_vlan_tenant_network(provider_net))
+
+    def test__is_vlan_tenant_network_no_vlan_driver(self):
+        self.mock_vlan_driver_property.return_value = None
+        provider_net = {
+            'physical_network': 'physnet1',
+            'segmentation_id': 100
+        }
+        self.assertFalse(self.driver._is_vlan_tenant_network(provider_net))
+
+    def _mock_tunnel_driver(self, network_type, ranges):
+        mock_tunnel_driver = mock.Mock()
+        mock_tunnel_driver.obj.get_network_segment_ranges.return_value = ranges
+        return mock.patch.object(
+            self.driver, 'get_tunnel_driver',
+            return_value=mock_tunnel_driver)
+
+    def test__is_tunnel_project_network_with_multiple_ranges(self):
+        with self._mock_tunnel_driver(
+                constants.TYPE_VXLAN, [(100, 200), (300, 400)]):
+            provider_net_in_range = {
+                'network_type': constants.TYPE_VXLAN,
+                'segmentation_id': 150,
+            }
+            self.assertTrue(
+                self.driver._is_tunnel_project_network(provider_net_in_range))
+
+            provider_net_between_ranges = {
+                'network_type': constants.TYPE_VXLAN,
+                'segmentation_id': 250,
+            }
+            self.assertFalse(self.driver._is_tunnel_project_network(
+                provider_net_between_ranges))
+
+            provider_net_second_range = {
+                'network_type': constants.TYPE_VXLAN,
+                'segmentation_id': 350,
+            }
+            self.assertTrue(self.driver._is_tunnel_project_network(
+                provider_net_second_range))
+
+    def test__is_tunnel_project_network_boundary_values(self):
+        with self._mock_tunnel_driver(constants.TYPE_GENEVE, [(100, 200)]):
+            provider_net_min = {
+                'network_type': constants.TYPE_GENEVE,
+                'segmentation_id': 100,
+            }
+            self.assertTrue(
+                self.driver._is_tunnel_project_network(provider_net_min))
+
+            provider_net_max = {
+                'network_type': constants.TYPE_GENEVE,
+                'segmentation_id': 200,
+            }
+            self.assertTrue(
+                self.driver._is_tunnel_project_network(provider_net_max))
+
+            provider_net_below = {
+                'network_type': constants.TYPE_GENEVE,
+                'segmentation_id': 99,
+            }
+            self.assertFalse(
+                self.driver._is_tunnel_project_network(provider_net_below))
+
+            provider_net_above = {
+                'network_type': constants.TYPE_GENEVE,
+                'segmentation_id': 201,
+            }
+            self.assertFalse(
+                self.driver._is_tunnel_project_network(provider_net_above))
+
+    def test__is_tunnel_project_network_empty_ranges(self):
+        with self._mock_tunnel_driver(constants.TYPE_GRE, []):
+            provider_net = {
+                'network_type': constants.TYPE_GRE,
+                'segmentation_id': 100,
+            }
+            self.assertFalse(
+                self.driver._is_tunnel_project_network(provider_net))
+
+    def test__is_tunnel_project_network_no_tunnel_driver(self):
+        with mock.patch.object(
+                self.driver, 'get_tunnel_driver', return_value=None):
+            provider_net = {
+                'network_type': constants.TYPE_VXLAN,
+                'segmentation_id': 100,
+            }
+            self.assertFalse(
+                self.driver._is_tunnel_project_network(provider_net))
+
+
 class TestDesignateClientKeystoneV3(testtools.TestCase):
     """Test case for designate clients """
 
