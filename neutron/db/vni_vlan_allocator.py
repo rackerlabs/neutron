@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import dataclasses
+
 from neutron_lib.db import api as db_api
 from oslo_db import exception as os_db_exc
 from oslo_log import log as logging
@@ -24,12 +26,31 @@ from neutron.db import rangeallocator
 LOG = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass(frozen=True)
+class ScopedRange:
+    """An inclusive integer range and the physnet scoping its uniqueness.
+
+    Field names mirror RangeAllocator.allocate(min_val, max_val, scope_val).
+    """
+
+    min_val: int
+    max_val: int
+    physnet: str
+
+
 class VNIVLANAllocator:
     """Allocates paired VNI + VLAN IDs and manages their mapping.
 
     This is a generic allocator that can be used by any component needing
-    a VNI/VLAN pair scoped by physnet. It owns the full lifecycle of the
-    vni_allocations, vlan_allocations, and vni_vlan_mapping rows.
+    a VNI/VLAN pair. It owns the full lifecycle of the vni_allocations,
+    vlan_allocations, and vni_vlan_mapping rows.
+
+    The VNI and the VLAN are allocated from independent pools, each given
+    as its own ScopedRange. These are distinct concepts: a VNI is unique
+    across the whole fabric, while a VLAN ID is only unique on a single
+    physical network. A mapping may therefore pair a VNI in one physnet
+    with a VLAN in another, and the same VLAN ID may be reused for many
+    VNIs as long as the VLAN physnets differ.
 
     Callers provide exception classes so that errors are domain-specific.
     """
@@ -62,44 +83,42 @@ class VNIVLANAllocator:
 
     @db_api.retry_if_session_inactive()
     @db_api.CONTEXT_WRITER
-    def allocate(self, context, min_vni, max_vni, min_vlan, max_vlan,
-                 physnet):
+    def allocate(self, context, vni_range, vlan_range):
         """Auto-allocate a VNI and VLAN pair, creating the mapping.
 
         :param context: Neutron request context (with active session)
-        :param min_vni: Minimum VNI value (inclusive)
-        :param max_vni: Maximum VNI value (inclusive)
-        :param min_vlan: Minimum VLAN ID (inclusive)
-        :param max_vlan: Maximum VLAN ID (inclusive)
-        :param physnet: Physical network scope
+        :param vni_range: ScopedRange for the VNI pool
+        :param vlan_range: ScopedRange for the VLAN pool
         :returns: (mapping_id, vni, vlan_id)
         """
         vni_alloc_id, vni = self._vni_allocator.allocate(
-            context, min_vni, max_vni, physnet)
+            context, vni_range.min_val, vni_range.max_val, vni_range.physnet)
 
         mapping_id, vlan_id = self._create_mapping(
-            context, vni_alloc_id, min_vlan, max_vlan, physnet)
+            context, vni_alloc_id, vlan_range)
 
-        LOG.debug("Allocated VNI %s / VLAN %s (mapping %s) on physnet %s",
-                  vni, vlan_id, mapping_id, physnet)
+        LOG.debug("Allocated VNI %s on physnet %s / VLAN %s on physnet %s "
+                  "(mapping %s)", vni, vni_range.physnet, vlan_id,
+                  vlan_range.physnet, mapping_id)
         return mapping_id, vni, vlan_id
 
     @db_api.retry_if_session_inactive()
     @db_api.CONTEXT_WRITER
-    def allocate_specific_vni(self, context, vni, min_vlan, max_vlan,
-                              physnet):
+    def allocate_specific_vni(self, context, vni, vni_physnet, vlan_range):
         """Allocate a specific VNI and auto-allocate a VLAN, creating mapping.
+
+        The VNI is given as a bare value and physnet rather than a
+        ScopedRange because a caller-chosen VNI has no range.
 
         :param context: Neutron request context (with active session)
         :param vni: The specific VNI to allocate
-        :param min_vlan: Minimum VLAN ID (inclusive)
-        :param max_vlan: Maximum VLAN ID (inclusive)
-        :param physnet: Physical network scope
+        :param vni_physnet: Physical network scoping the VNI pool
+        :param vlan_range: ScopedRange for the VLAN pool
         :returns: (mapping_id, vni, vlan_id)
         :raises: vni_in_use_exc if the VNI is already allocated
         """
         vni_allocation = alloc_models.VNIAllocation(
-            vni=vni, physnet=physnet)
+            vni=vni, physnet=vni_physnet)
         context.session.add(vni_allocation)
 
         try:
@@ -110,20 +129,21 @@ class VNIVLANAllocator:
             raise self._vni_in_use_exc(vni=vni)
 
         mapping_id, vlan_id = self._create_mapping(
-            context, vni_allocation.id, min_vlan, max_vlan, physnet)
+            context, vni_allocation.id, vlan_range)
 
-        LOG.debug("Allocated specific VNI %s / VLAN %s (mapping %s) "
-                  "on physnet %s", vni, vlan_id, mapping_id, physnet)
+        LOG.debug("Allocated specific VNI %s on physnet %s / VLAN %s on "
+                  "physnet %s (mapping %s)", vni, vni_physnet, vlan_id,
+                  vlan_range.physnet, mapping_id)
         return mapping_id, vni, vlan_id
 
-    def _create_mapping(self, context, vni_alloc_id, min_vlan, max_vlan,
-                        physnet):
+    def _create_mapping(self, context, vni_alloc_id, vlan_range):
         """Allocate a VLAN and create a VNI-VLAN mapping row.
 
         :returns: (mapping_id, vlan_id)
         """
         vlan_alloc_id, vlan_id = self._vlan_allocator.allocate(
-            context, min_vlan, max_vlan, physnet)
+            context, vlan_range.min_val, vlan_range.max_val,
+            vlan_range.physnet)
 
         mapping = alloc_models.VNIVLANMapping(
             vni_allocation_id=vni_alloc_id,

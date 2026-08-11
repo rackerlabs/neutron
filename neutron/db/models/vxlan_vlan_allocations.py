@@ -63,6 +63,9 @@ class VNIVLANMapping(model_base.BASEV2, model_base.HasId):
 
     RESTRICT on both FKs prevents deletion of either allocation while
     the mapping exists. UNIQUE on each allocation_id enforces 1:1.
+
+    The two allocations need not share a physnet: the VNI and the VLAN are
+    allocated from independent pools, each scoped by its own physnet.
     """
 
     __tablename__ = 'vni_vlan_mapping'
