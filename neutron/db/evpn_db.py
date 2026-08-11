@@ -25,11 +25,14 @@ from neutron.services.evpn import exceptions as evpn_exc
 
 LOG = logging.getLogger(__name__)
 
-_EVPN_PHYSNET = 'ovn-evpn'
-_MIN_VNI = 1
-_MAX_VNI = n_const.MAX_VXLAN_VNI
-_MIN_VLAN = n_const.MIN_VLAN_TAG
-_MAX_VLAN = n_const.MAX_VLAN_TAG
+# The VNI is unique across the whole fabric while the VLAN is only unique
+# on a single physical network, so they are separate pools. EVPN L3 has a
+# single scope for each today, hence the identical physnets.
+_EVPN_VNI_RANGE = vni_vlan_allocator.ScopedRange(
+    min_val=1, max_val=n_const.MAX_VXLAN_VNI, physnet='ovn-evpn')
+_EVPN_VLAN_RANGE = vni_vlan_allocator.ScopedRange(
+    min_val=n_const.MIN_VLAN_TAG, max_val=n_const.MAX_VLAN_TAG,
+    physnet='ovn-evpn')
 
 
 class EVPNDbHelper:
@@ -53,7 +56,8 @@ class EVPNDbHelper:
     def allocate_vni_for_router(self, context, router_id, vni):
         """Allocate a VNI for a router.
 
-        The physical network is the hardcoded _EVPN_PHYSNET constant.
+        The ranges and physical networks are the hardcoded
+        _EVPN_VNI_RANGE and _EVPN_VLAN_RANGE constants.
 
         :param context: Neutron request context (with active session)
         :param router_id: UUID of the router
@@ -75,7 +79,7 @@ class EVPNDbHelper:
         :raises EVPNVNIInUse: If VNI is already allocated
         """
         mapping_id, vni, _vlan_id = self._allocator.allocate_specific_vni(
-            context, vni, _MIN_VLAN, _MAX_VLAN, _EVPN_PHYSNET)
+            context, vni, _EVPN_VNI_RANGE.physnet, _EVPN_VLAN_RANGE)
 
         instance = evpn_models.EVPNL3Instance(
             router_id=router_id,
@@ -94,7 +98,7 @@ class EVPNDbHelper:
         :raises EVPNNoVniAvailable: if no VNI remains in the range
         """
         mapping_id, vni, _vlan_id = self._allocator.allocate(
-            context, _MIN_VNI, _MAX_VNI, _MIN_VLAN, _MAX_VLAN, _EVPN_PHYSNET)
+            context, _EVPN_VNI_RANGE, _EVPN_VLAN_RANGE)
 
         instance = evpn_models.EVPNL3Instance(
             router_id=router_id,
